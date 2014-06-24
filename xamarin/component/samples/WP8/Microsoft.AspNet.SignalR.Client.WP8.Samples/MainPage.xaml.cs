@@ -7,16 +7,24 @@ namespace Microsoft.AspNet.SignalR.Client.WP8.Samples
 {
     public partial class MainPage : PhoneApplicationPage
     {
+        const string SIGNALR_DEMO_SERVER = "http://YOUR-SERVER-INSTANCE-HERE";
+
         // Constructor
         public MainPage()
         {
             InitializeComponent();
 
+            if (SIGNALR_DEMO_SERVER == "http://YOUR-SERVER-INSTANCE-HERE") {
+                Messages2.Text = "You need to configure the app to point to your own SignalR Demo service.  Please see the Getting Started Guide for more information!";
+                return;
+            }
+            
+
             var writer = new TextBlockWriter(SynchronizationContext.Current, this.Messages);
             var client = new CommonClient(writer);
             
             // Windows Phone emulator runs in a separate virtual machine therefore you can't use a url containing localhost
-			var task = client.RunAsync("http://signalr-test1.cloudapp.net:82/");
+			var task = client.RunAsync(SIGNALR_DEMO_SERVER);
 
             // Sample code to localize the ApplicationBar
             //BuildLocalizedApplicationBar();

@@ -13,17 +13,12 @@ namespace Microsoft.AspNet.SignalR.Client.iOS.Samples
 	[Register ("AppDelegate")]
 	public partial class AppDelegate : UIApplicationDelegate
 	{
+		const string SIGNALR_DEMO_SERVER = "http://YOUR-SERVER-INSTANCE-HERE";
+		
 		// class-level declarations
 		UIWindow window;
 		UINavigationController navController;
 
-		//
-		// This method is invoked when the application has loaded and is ready to run. In this 
-		// method you should instantiate the window, load the UI into it and then make the window
-		// visible.
-		//
-		// You have 17 seconds to return from this method, or iOS will terminate your application.
-		//
 		public override bool FinishedLaunching(UIApplication app, NSDictionary options)
 		{
 			window = new UIWindow(UIScreen.MainScreen.Bounds);
@@ -44,10 +39,15 @@ namespace Microsoft.AspNet.SignalR.Client.iOS.Samples
 			window.RootViewController = navController;
 			window.MakeKeyAndVisible();
 
+			if (SIGNALR_DEMO_SERVER == "http://YOUR-SERVER-INSTANCE-HERE") {
+				textView.Text = "You need to configure the app to point to your own SignalR Demo service.  Please see the Getting Started Guide for more information!";
+				return true;
+			}
+			
 			var traceWriter = new TextViewWriter(SynchronizationContext.Current, textView);
 
 			var client = new CommonClient(traceWriter);
-			client.RunAsync("http://signalr-test1.cloudapp.net:82/");
+			client.RunAsync(SIGNALR_DEMO_SERVER);
 
 			return true;
 		}

@@ -1,3 +1,10 @@
+
+## Running the Sample
+If you would like to run the sample you will need to setup the ASP.NET SignalR Demo project on your own server.  This project can be found in the official SignalR GitHub repository: [GitHub SignalR: SignalR/Samples/Microsoft.AspNet.SignalR.Samples](https://github.com/SignalR/SignalR/tree/master/samples/Microsoft.AspNet.SignalR.Samples).
+
+Once you've got the ASP.NET project running, you should change the samples to connect to the web address of your demo ASP.NET application.  
+
+
 ## Getting Started
 Setting up a connection and proxy to an ASP.NET SignalR Hub is easy.  You establish the connection, generate a hub proxy, and then define handlers for hub methods the server can call on your client.  After starting the hub connection, you can then invoke methods on the server as needed:
 
