@@ -43,7 +43,7 @@
                         attachedTo++;
                     }
                 },
-                cancel: function () {                   
+                cancel: function () {
                     // Only clear the interval if there's only one more object that the loadPreventer is attachedTo
                     if (attachedTo === 1) {
                         window.clearInterval(loadingFixIntervalId);
@@ -59,7 +59,9 @@
     signalR.transports.foreverFrame = {
         name: "foreverFrame",
 
-        supportsKeepAlive: true,
+        supportsKeepAlive: function () {
+            return true;
+        },
 
         // Added as a value here so we can create tests to verify functionality
         iframeClearThreshold: 50,
@@ -70,7 +72,7 @@
                 url,
                 frame = createFrame(),
                 frameLoadHandler = function () {
-                    connection.log("Forever frame iframe finished loading and is no longer receiving messages, reconnecting.");
+                    connection.log("Forever frame iframe finished loading and is no longer receiving messages.");
                     that.reconnect(connection);
                 };
 
@@ -121,24 +123,22 @@
         reconnect: function (connection) {
             var that = this;
 
-            // Need to verify before the setTimeout occurs because an application sleep could occur during the setTimeout duration.
-            if (!transportLogic.verifyLastActive(connection)) {
-                return;
+            // Need to verify connection state and verify before the setTimeout occurs because an application sleep could occur during the setTimeout duration.
+            if (transportLogic.isConnectedOrReconnecting(connection) && transportLogic.verifyLastActive(connection)) {
+                window.setTimeout(function () {
+                    // Verify that we're ok to reconnect.
+                    if (!transportLogic.verifyLastActive(connection)) {
+                        return;
+                    }
+
+                    if (connection.frame && transportLogic.ensureReconnectingState(connection)) {
+                        var frame = connection.frame,
+                            src = transportLogic.getUrl(connection, that.name, true) + "&frameId=" + connection.frameId;
+                        connection.log("Updating iframe src to '" + src + "'.");
+                        frame.src = src;
+                    }
+                }, connection.reconnectDelay);
             }
-
-            window.setTimeout(function () {
-                // Verify that we're ok to reconnect.
-                if (!transportLogic.verifyLastActive(connection)) {
-                    return;
-                }
-
-                if (connection.frame && transportLogic.ensureReconnectingState(connection)) {
-                    var frame = connection.frame,
-                        src = transportLogic.getUrl(connection, that.name, true) + "&frameId=" + connection.frameId;
-                    connection.log("Updating iframe src to '" + src + "'.");
-                    frame.src = src;
-                }
-            }, connection.reconnectDelay);
         },
 
         lostConnection: function (connection) {
@@ -151,9 +151,21 @@
 
         receive: function (connection, data) {
             var cw,
-                body;
+                body,
+                response;
 
-            transportLogic.processMessages(connection, data, connection.onSuccess);
+            if (connection.json !== connection._originalJson) {
+                // If there's a custom JSON parser configured then serialize the object
+                // using the original (browser) JSON parser and then deserialize it using
+                // the custom parser (connection._parseResponse does that). This is so we
+                // can easily send the response from the server as "raw" JSON but still 
+                // support custom JSON deserialization in the browser.
+                data = connection._originalJson.stringify(data);
+            }
+
+            response = connection._parseResponse(data);
+
+            transportLogic.processMessages(connection, response, connection.onSuccess);
 
             // Protect against connection stopping from a callback trigger within the processMessages above.
             if (connection.state === $.signalR.connectionState.connected) {

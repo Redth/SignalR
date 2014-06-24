@@ -14,7 +14,7 @@ namespace Microsoft.AspNet.SignalR.Client.Infrastructure
     public sealed class TransportAbortHandler : IDisposable
     {
         // The abort query string
-        private const string _abortQueryString = "?transport={0}&connectionData={1}&connectionToken={2}{3}";
+        private const string _abortQueryString = "?transport={0}&clientProtocol={1}&connectionData={2}&connectionToken={3}{4}";
 
         // The transport name
         private readonly string _transportName;
@@ -48,6 +48,15 @@ namespace Microsoft.AspNet.SignalR.Client.Infrastructure
                 throw new ArgumentNullException("connection");
             }
 
+            // Save the connection.ConnectionToken since race issue that connection.ConnectionToken can be set to null in different thread
+            var connectionToken = connection.ConnectionToken;
+
+            if (connectionToken == null)
+            {
+                connection.Trace(TraceLevels.Messages, "Connection already disconnected, skipping abort.");
+                return;
+            }
+
             // Abort should never complete before any of its previous calls
             lock (_abortLock)
             {
@@ -64,8 +73,9 @@ namespace Microsoft.AspNet.SignalR.Client.Infrastructure
                     string url = connection.Url + "abort" + String.Format(CultureInfo.InvariantCulture,
                                                                           _abortQueryString,
                                                                           _transportName,
+                                                                          connection.Protocol,
                                                                           connectionData,
-                                                                          Uri.EscapeDataString(connection.ConnectionToken),
+                                                                          Uri.EscapeDataString(connectionToken),
                                                                           null);
 
                     url += TransportHelper.AppendCustomQueryString(connection, url);

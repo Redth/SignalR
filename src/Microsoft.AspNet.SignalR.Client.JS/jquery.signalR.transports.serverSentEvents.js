@@ -9,12 +9,18 @@
     var signalR = $.signalR,
         events = $.signalR.events,
         changeState = $.signalR.changeState,
-        transportLogic = signalR.transports._logic;
+        transportLogic = signalR.transports._logic,
+        clearReconnectAttemptTimeout = function (connection) {
+            window.clearTimeout(connection._.reconnectAttemptTimeoutHandle);
+            delete connection._.reconnectAttemptTimeoutHandle;
+        };
 
     signalR.transports.serverSentEvents = {
         name: "serverSentEvents",
 
-        supportsKeepAlive: true,
+        supportsKeepAlive: function () {
+            return true;
+        },
 
         timeOut: 3000,
 
@@ -23,8 +29,7 @@
                 opened = false,
                 $connection = $(connection),
                 reconnecting = !onSuccess,
-                url,
-                reconnectTimeout;
+                url;
 
             if (connection.eventSource) {
                 connection.log("The connection already has an event source. Stopping it.");
@@ -43,7 +48,7 @@
 
             try {
                 connection.log("Attempting to connect to SSE endpoint '" + url + "'.");
-                connection.eventSource = new window.EventSource(url);
+                connection.eventSource = new window.EventSource(url, { withCredentials: connection.withCredentials });
             }
             catch (e) {
                 connection.log("EventSource failed trying to connect with error " + e.Message + ".");
@@ -61,7 +66,7 @@
             }
 
             if (reconnecting) {
-                reconnectTimeout = window.setTimeout(function () {
+                connection._.reconnectAttemptTimeoutHandle = window.setTimeout(function () {
                     if (opened === false) {
                         // If we're reconnecting and the event source is attempting to connect,
                         // don't keep retrying. This causes duplicate connections to spawn.
@@ -77,10 +82,7 @@
             connection.eventSource.addEventListener("open", function (e) {
                 connection.log("EventSource connected.");
 
-                if (reconnectTimeout) {
-                    window.clearTimeout(reconnectTimeout);
-                }
-
+                clearReconnectAttemptTimeout(connection);
                 transportLogic.clearReconnectTimeout(connection);
 
                 if (opened === false) {
@@ -160,6 +162,7 @@
 
         stop: function (connection) {
             // Don't trigger a reconnect after stopping
+            clearReconnectAttemptTimeout(connection);
             transportLogic.clearReconnectTimeout(connection);
 
             if (connection && connection.eventSource) {

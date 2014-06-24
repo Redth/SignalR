@@ -14,12 +14,12 @@ namespace Microsoft.AspNet.SignalR.ServiceBus
     internal class ServiceBusConnection : IDisposable
     {
         private const int DefaultReceiveBatchSize = 1000;
-        private static readonly TimeSpan BackoffAmount = TimeSpan.FromSeconds(20);
         private static readonly TimeSpan ErrorBackOffAmount = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan DefaultReadTimeout = TimeSpan.FromSeconds(60);
         private static readonly TimeSpan ErrorReadTimeout = TimeSpan.FromSeconds(0.5);
         private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(10);
 
+        private readonly TimeSpan _backoffTime;
         private readonly TimeSpan _idleSubscriptionTimeout;
         private readonly NamespaceManager _namespaceManager;
         private readonly MessagingFactory _factory;
@@ -36,45 +36,45 @@ namespace Microsoft.AspNet.SignalR.ServiceBus
             {
                 _namespaceManager = NamespaceManager.CreateFromConnectionString(_connectionString);
                 _factory = MessagingFactory.CreateFromConnectionString(_connectionString);
-                _factory.RetryPolicy = RetryExponential.Default;
+
+                if (configuration.RetryPolicy != null)
+                {
+                    _factory.RetryPolicy = configuration.RetryPolicy;
+                }
+                else
+                {
+                    _factory.RetryPolicy = RetryExponential.Default;
+                }
             }
             catch (ConfigurationErrorsException)
             {
                 _trace.TraceError("The configured Service Bus connection string contains an invalid property. Check the exception details for more information.");
+                throw;
             }
 
-            _idleSubscriptionTimeout = configuration.IdleSubscriptionTimeout;
+            _backoffTime = configuration.BackoffTime;
+            _idleSubscriptionTimeout = configuration.IdleSubscriptionTimeout;    
             _configuration = configuration;
         }
 
         [SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "The disposable is returned to the caller")]
-        public ServiceBusConnectionContext Subscribe(IList<string> topicNames,
-                                                     Action<int, IEnumerable<BrokeredMessage>> handler,
-                                                     Action<int, Exception> errorHandler,
-                                                     Action<int> openStream)
+        public void Subscribe(ServiceBusConnectionContext connectionContext)
         {
-            if (topicNames == null)
+            if (connectionContext == null)
             {
-                throw new ArgumentNullException("topicNames");
+                throw new ArgumentNullException("connectionContext");
             }
 
-            if (handler == null)
-            {
-                throw new ArgumentNullException("handler");
-            }
+            _trace.TraceInformation("Subscribing to {0} topic(s) in the service bus...", connectionContext.TopicNames.Count);
 
-            _trace.TraceInformation("Subscribing to {0} topic(s) in the service bus...", topicNames.Count);
+            connectionContext.NamespaceManager = _namespaceManager;
 
-            var connectionContext = new ServiceBusConnectionContext(_configuration, _namespaceManager, topicNames, _trace, handler, errorHandler, openStream);
-
-            for (var topicIndex = 0; topicIndex < topicNames.Count; ++topicIndex)
+            for (var topicIndex = 0; topicIndex < connectionContext.TopicNames.Count; ++topicIndex)
             {
                 Retry(() => CreateTopic(connectionContext, topicIndex));
             }
 
-            _trace.TraceInformation("Subscription to {0} topics in the service bus Topic service completed successfully.", topicNames.Count);
-
-            return connectionContext;
+            _trace.TraceInformation("Subscription to {0} topics in the service bus Topic service completed successfully.", connectionContext.TopicNames.Count);
         }
 
         private void CreateTopic(ServiceBusConnectionContext connectionContext, int topicIndex)
@@ -108,6 +108,16 @@ namespace Microsoft.AspNet.SignalR.ServiceBus
 
                 // Create a client for this topic
                 TopicClient topicClient = TopicClient.CreateFromConnectionString(_connectionString, topicName);
+
+                if (_configuration.RetryPolicy != null)
+                {
+                    topicClient.RetryPolicy = _configuration.RetryPolicy;
+                }
+                else
+                {
+                    topicClient.RetryPolicy = RetryExponential.Default;
+                }
+
                 connectionContext.SetTopicClients(topicClient, topicIndex);
 
                 _trace.TraceInformation("Creation of a new topic client {0} completed successfully.", topicName);
@@ -205,7 +215,10 @@ namespace Microsoft.AspNet.SignalR.ServiceBus
             if (disposing)
             {
                 // Close the factory
-                _factory.Close();
+                if (_factory != null)
+                {
+                    _factory.Close();
+                }
             }
         }
 
@@ -266,7 +279,7 @@ namespace Microsoft.AspNet.SignalR.ServiceBus
         private bool ContinueReceiving(IAsyncResult asyncResult, ReceiverContext receiverContext)
         {
             bool shouldContinue = true;
-            TimeSpan backoffAmount = BackoffAmount;
+            TimeSpan backoffAmount = _backoffTime;
 
             try
             {

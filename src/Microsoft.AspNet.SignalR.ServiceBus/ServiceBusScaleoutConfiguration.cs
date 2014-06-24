@@ -30,6 +30,7 @@ namespace Microsoft.AspNet.SignalR
             ConnectionString = connectionString;
             TopicPrefix = topicPrefix;
             TopicCount = 5;
+            BackoffTime = TimeSpan.FromSeconds(20);
             TimeToLive = TimeSpan.FromMinutes(1);
             MaximumMessageSize = 256 * 1024;
             OperationTimeout = null;
@@ -49,7 +50,7 @@ namespace Microsoft.AspNet.SignalR
         /// <summary>
         /// The number of topics to send messages over. Using more topics reduces contention and may increase throughput.
         /// This must be consistent between all nodes in the web farm.
-        /// Defaults to 1.
+        /// Defaults to 5.
         /// </summary>
         public int TopicCount
         {
@@ -83,6 +84,12 @@ namespace Microsoft.AspNet.SignalR
         public TimeSpan IdleSubscriptionTimeout { get; set; }
 
         /// <summary>
+        /// Specifies the delay before we try again after an error
+        /// </summary>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Backoff")]
+        public TimeSpan BackoffTime { get; set; }
+
+        /// <summary>
         /// Gets or Sets the operation timeout for all Service Bus operations 
         /// </summary>
         public TimeSpan? OperationTimeout { get; set; }
@@ -107,5 +114,11 @@ namespace Microsoft.AspNet.SignalR
 
             return ConnectionString;
         }
+
+        /// <summary>
+        /// Gets or sets the retry policy for service bus
+        /// Default value is RetryExponential.Default
+        /// </summary>
+        public RetryPolicy RetryPolicy { get; set; }
     }
 }

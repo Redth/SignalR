@@ -35,6 +35,7 @@ namespace Microsoft.AspNet.SignalR.Transports
         // conditions (timeout, disconnect, connection forcibly ended, host shutdown)
         private CancellationToken _connectionEndToken;
         private SafeCancellationTokenSource _connectionEndTokenSource;
+        private Task _lastWriteTask = TaskAsyncHelper.Empty;
 
         // Token that represents the host shutting down
         private CancellationToken _hostShutdownToken;
@@ -109,7 +110,7 @@ namespace Microsoft.AspNet.SignalR.Transports
             set;
         }
 
-        public Func<Task> Disconnected { get; set; }
+        public Func<bool, Task> Disconnected { get; set; }
 
         public virtual CancellationToken CancellationToken
         {
@@ -124,7 +125,12 @@ namespace Microsoft.AspNet.SignalR.Transports
             get
             {
                 // If the CTS is tripped or the request has ended then the connection isn't alive
-                return !(CancellationToken.IsCancellationRequested || (_requestLifeTime != null && _requestLifeTime.Task.IsCompleted));
+                return !(
+                    CancellationToken.IsCancellationRequested || 
+                    (_requestLifeTime != null && _requestLifeTime.Task.IsCompleted) ||
+                    _lastWriteTask.IsCanceled ||
+                    _lastWriteTask.IsFaulted
+                );
             }
         }
 
@@ -168,16 +174,32 @@ namespace Microsoft.AspNet.SignalR.Transports
             }
         }
 
+        public virtual bool RequiresTimeout
+        {
+            get
+            {
+                return false;
+            }
+        }
+
         public virtual TimeSpan DisconnectThreshold
         {
             get { return TimeSpan.FromSeconds(5); }
         }
 
-        public virtual bool IsConnectRequest
+        protected bool IsConnectRequest
         {
             get
             {
                 return Context.Request.LocalPath.EndsWith("/connect", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        protected bool IsSendRequest
+        {
+            get
+            {
+                return Context.Request.LocalPath.EndsWith("/send", StringComparison.OrdinalIgnoreCase);
             }
         }
 
@@ -186,6 +208,14 @@ namespace Microsoft.AspNet.SignalR.Transports
             get
             {
                 return Context.Request.LocalPath.EndsWith("/abort", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        protected virtual bool SuppressReconnect
+        {
+            get
+            {
+                return false;
             }
         }
 
@@ -221,16 +251,15 @@ namespace Microsoft.AspNet.SignalR.Transports
 
         public Task Disconnect()
         {
-            // Ensure delegate continues to use the C# Compiler static delegate caching optimization.
-            return Abort(clean: false).Then(transport => transport.Connection.Close(transport.ConnectionId), this);
+            return Abort(clean: false);
         }
 
-        public Task Abort()
+        protected Task Abort()
         {
             return Abort(clean: true);
         }
 
-        public Task Abort(bool clean)
+        private Task Abort(bool clean)
         {
             if (clean)
             {
@@ -251,10 +280,10 @@ namespace Microsoft.AspNet.SignalR.Transports
             // End the connection
             End();
 
-            var disconnected = Disconnected ?? _emptyTaskFunc;
+            var disconnectTask = Disconnected != null ? Disconnected(clean) : TaskAsyncHelper.Empty;
 
             // Ensure delegate continues to use the C# Compiler static delegate caching optimization.
-            return disconnected().Catch((ex, state) => OnDisconnectError(ex, state), Trace)
+            return disconnectTask.Catch((ex, state) => OnDisconnectError(ex, state), Trace)
                                  .Then(counters => counters.ConnectionsDisconnected.Increment(), _counters);
         }
 
@@ -309,7 +338,7 @@ namespace Microsoft.AspNet.SignalR.Transports
             }
         }
 
-        protected virtual internal Task EnqueueOperation(Func<Task> writeAsync)
+        protected internal Task EnqueueOperation(Func<Task> writeAsync)
         {
             return EnqueueOperation(state => ((Func<Task>)state).Invoke(), writeAsync);
         }
@@ -322,7 +351,10 @@ namespace Microsoft.AspNet.SignalR.Transports
             }
 
             // Only enqueue new writes if the connection is alive
-            return WriteQueue.Enqueue(writeAsync, state);
+            Task writeTask = WriteQueue.Enqueue(writeAsync, state);
+            _lastWriteTask = writeTask;
+
+            return writeTask;
         }
 
         protected virtual void InitializePersistentState()
