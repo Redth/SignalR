@@ -24,7 +24,7 @@ libraries:
 summary: Incredibly simple real-time web for .NET.
 details: Details.md
 getting-started: GettingStarted.md
-version: 2.1.0
+version: 2.1.1
 samples: 
   iOS Sample.  Demonstrates how to use SignalR Client in an iOS app: samples/iOS/Microsoft.AspNet.SignalR.Client.iOS.Samples.sln
   Android Sample.  Demonstrates how to use SignalR Client in an Android app: samples/Android/Microsoft.AspNet.SignalR.Client.Android.Samples.sln
