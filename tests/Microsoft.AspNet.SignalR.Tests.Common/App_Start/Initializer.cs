@@ -42,6 +42,15 @@ namespace Microsoft.AspNet.SignalR.Tests.Common
 
                 e.SetObserved();
             };
+
+            var attachToPreSendRequestHeadersRaw = ConfigurationManager.AppSettings["attachToPreSendRequestHeaders"];
+
+            // It is too late to add a module in the Configuration method, so we are adding it here if necessary.
+            bool attachToPreSendRequestHeaders;
+            if (Boolean.TryParse(attachToPreSendRequestHeadersRaw, out attachToPreSendRequestHeaders) && attachToPreSendRequestHeaders)
+            {
+                HttpApplication.RegisterModule(typeof(PreSendRequestHeadersModule));
+            }
         }
 
         public static void Configuration(IAppBuilder app)
@@ -120,7 +129,7 @@ namespace Microsoft.AspNet.SignalR.Tests.Common
                 map.RunSignalR<MySendingConnection>(config);
             });
 
-            app.Map("/autoencodedjson", map =>
+            app.Map("/echo", map =>
             {
                 map.UseCors(CorsOptions.AllowAll);
                 map.RunSignalR<EchoConnection>(config);
@@ -171,6 +180,7 @@ namespace Microsoft.AspNet.SignalR.Tests.Common
             app.MapSignalR<UnusableProtectedConnection>("/protected", config);
             app.MapSignalR<FallbackToLongPollingConnectionThrows>("/fall-back-throws", config);
             app.MapSignalR<PreserializedJsonConnection>("/preserialize", config);
+            app.MapSignalR<AsyncOnConnectedConnection>("/async-on-connected", config);
 
             // This subpipeline is protected by basic auth
             app.Map("/basicauth", map =>
@@ -302,19 +312,6 @@ namespace Microsoft.AspNet.SignalR.Tests.Common
                 });
                 map.MapSignalR<ExamineReconnectPath>("/examine-reconnect", config);
                 map.MapSignalR(hubConfig);
-            });
-
-            var longPollDelayResolver = new DefaultDependencyResolver();
-            var configManager = longPollDelayResolver.Resolve<IConfigurationManager>();
-
-            configManager.LongPollDelay = TimeSpan.FromSeconds(60);
-            // Make the disconnect timeout and the keep alive interval short so we can
-            // complete our tests quicker.
-            configManager.DisconnectTimeout = TimeSpan.FromSeconds(6);
-
-            app.MapSignalR<EchoConnection>("/longPollDelay", new ConnectionConfiguration
-            {
-                Resolver = longPollDelayResolver
             });
 
             // Perf/stress test related

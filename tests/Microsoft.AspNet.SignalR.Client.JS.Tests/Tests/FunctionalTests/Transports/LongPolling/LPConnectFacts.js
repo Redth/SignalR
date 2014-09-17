@@ -99,33 +99,6 @@ QUnit.asyncTimeoutTest("Starting and stopping repeatedly doesn't result in multi
     };
 });
 
-QUnit.asyncTimeoutTest("LongPollDelays do not cause keep alive timeouts", testUtilities.defaultTestTimeout * 3, function (end, assert, testName) {
-    var connection = testUtilities.createConnection("longPollDelay", end, assert, testName, undefined, false),
-        transport = { transport: "longPolling" };
-
-    connection.connectionSlow(function () {
-        assert.fail("connectionSlow fired with a non-zero LongPollDelay")
-        end();
-    });
-
-    connection.reconnecting(function () {
-        assert.fail("The connection started reconnecting.")
-        end();
-    });
-
-    connection.start(transport).done(function () {
-        setTimeout(function () {
-            assert.equal(connection.state, $.signalR.connectionState.connected, "The connection stayed connected.");
-            end();
-        }, 5000);
-    });
-
-    // Cleanup
-    return function () {
-        connection.stop();
-    };
-});
-
 // TODO: Investigate why these tests don't work in phantom.js. Seems like jsonp is borked in phantom
 QUnit.module("JSONP Facts", testUtilities.transports.longPolling.enabled && !window.document.commandLineTest);
 
@@ -196,7 +169,6 @@ QUnit.asyncTimeoutTest("JSONP requests worked when enabled in Hubs.", testUtilit
     };
 });
 
-
 QUnit.asyncTimeoutTest("JSONP requests worked when enabled in PersistentConnections.", testUtilities.defaultTestTimeout, function (end, assert, testName) {
     var connection = testUtilities.createConnection('jsonp/echo', end, assert, testName, false),
         options = { transport: "longPolling", jsonp: true };
@@ -211,6 +183,30 @@ QUnit.asyncTimeoutTest("JSONP requests worked when enabled in PersistentConnecti
                   end();
               });
 
+
+    // Cleanup
+    return function () {
+        connection.stop();
+    };
+});
+
+QUnit.asyncTimeoutTest("Hub methods can be invoked using JSONP.", testUtilities.defaultTestTimeout, function (end, assert, testName) {
+    var connection = testUtilities.createHubConnection(end, assert, testName, 'jsonp/signalr'),
+        demo = connection.createHubProxies().demo,
+        options = { transport: "longPolling", jsonp: true };
+
+    connection.start(options)
+              .done(function () {
+                  assert.comment("JSONP connection was established successfully");
+
+                  demo.server.overload().done(function () {
+                      assert.comment("Successfully invoked demo.server.overload()");
+                      end();
+                  }).fail(function () {
+                      assert.fail("Invoking demo.server.overload() failed");
+                      end();
+                  });
+              });
 
     // Cleanup
     return function () {
