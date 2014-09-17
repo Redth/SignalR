@@ -1,8 +1,7 @@
 using System;
 using System.IO;
 using System.Threading;
-using UIKit;
-using Foundation;
+using MonoTouch.UIKit;
 
 namespace Microsoft.AspNet.SignalR.Client.iOS.Samples
 {
@@ -40,7 +39,7 @@ namespace Microsoft.AspNet.SignalR.Client.iOS.Samples
             _context.Post(delegate
             {
                 _textView.Text = _textView.Text + string.Format(format, args) + Environment.NewLine;
-				_textView.ScrollRangeToVisible(new NSRange(_textView.Text.Length, 0));
+				_textView.ScrollRangeToVisible(new MonoTouch.Foundation.NSRange(_textView.Text.Length, 0));
 
             }, state: null);
         }

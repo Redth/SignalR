@@ -2,9 +2,8 @@ using System;
 using System.Drawing;
 using System.Threading;
 using Microsoft.AspNet.SignalR.Client.Samples;
-using Foundation;
-using UIKit;
-using CoreGraphics;
+using MonoTouch.Foundation;
+using MonoTouch.UIKit;
 
 namespace Microsoft.AspNet.SignalR.Client.iOS.Samples
 {
@@ -31,7 +30,7 @@ namespace Microsoft.AspNet.SignalR.Client.iOS.Samples
 
 			controller.NavigationItem.Title = "SignalR Client";
 
-			var textView = new UITextView(new CGRect(0, 0, 320, view.Frame.Height - 0));
+			var textView = new UITextView(new RectangleF(0, 0, 320, view.Frame.Height - 0));
 			view.AddSubview (textView);
 
 
