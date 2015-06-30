@@ -19,6 +19,11 @@ libraries:
     - lib/ios/Newtonsoft.Json.dll
     - lib/ios/System.Net.Http.Extensions.dll
     - lib/ios/System.Net.Http.Primitives.dll
+  mac-unified:
+    - lib/mac-unified/Microsoft.AspNet.SignalR.Client.dll
+    - lib/mac-unified/Newtonsoft.Json.dll
+    - lib/mac-unified/System.Net.Http.Extensions.dll
+    - lib/mac-unified/System.Net.Http.Primitives.dll
   android:
     - lib/android/Microsoft.AspNet.SignalR.Client.dll
     - lib/android/Newtonsoft.Json.dll
@@ -29,10 +34,11 @@ libraries:
 summary: Incredibly simple real-time web for .NET.
 details: Details.md
 getting-started: GettingStarted.md
-version: 2.1.2
+version: 2.1.2.2
 samples: 
   iOS Classic API Sample: "samples/iOS-Classic/Microsoft.AspNet.SignalR.Client.iOS-Classic.Samples.sln"
   iOS Unified API Sample: "samples/iOS/Microsoft.AspNet.SignalR.Client.iOS.Samples.sln"
+  Mac Unified API Sample: "samples/Mac/Microsoft.AspNet.SignalR.Client.Mac.Samples.sln"
   Android Sample: "samples/Android/Microsoft.AspNet.SignalR.Client.Android.Samples.sln"
   WP8 Sample: "samples/WP8/Microsoft.AspNet.SignalR.Client.WP8.Samples.sln"
 no_build: true
